@@ -3,6 +3,7 @@
 namespace App\Shared\Gmail;
 
 use App\Shared\Gmail\Commands\GenerateGmailAccessToken;
+use App\Shared\Gmail\Commands\MakeGmailable;
 use App\Shared\Gmail\Interfaces\GmailServiceInterface;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,6 +15,7 @@ class GmailServiceProvider extends ServiceProvider
 
         $this->commands([
             GenerateGmailAccessToken::class,
+            MakeGmailable::class,
         ]);
 
         $this->app->singleton(GmailManager::class);
@@ -28,6 +30,12 @@ class GmailServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/config/gmail.php' => config_path('gmail.php'),
             ], 'gmail-config');
+
+            $this->publishes([
+                __DIR__.'/stubs/gmailable.stub' => base_path('stubs/gmailable.stub'),
+                __DIR__.'/stubs/gmailable-view.stub' => base_path('stubs/gmailable-view.stub'),
+                __DIR__.'/stubs/gmailable-view.blade.stub' => base_path('stubs/gmailable-view.blade.stub'),
+            ], 'gmail-stubs');
         }
     }
 }

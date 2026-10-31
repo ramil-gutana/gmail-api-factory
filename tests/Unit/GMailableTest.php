@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Shared\Gmail\Exceptions\GmailException;
 use App\Shared\Gmail\GMailable;
 use Illuminate\Support\Facades\View;
 use Tests\TestCase;
@@ -126,5 +127,53 @@ class GMailableTest extends TestCase
         $raw = $this->mail()->view('gmail-test::welcome', ['name' => 'Bob'])->render();
 
         $this->assertStringContainsString('<h1>Hello Bob</h1>', quoted_printable_decode($raw));
+    }
+
+    public function test_build_hook_runs_once_before_rendering(): void
+    {
+        $mail = new class('a@example.com', 'Hi') extends GMailable
+        {
+            public int $builds = 0;
+
+            protected function build(): void
+            {
+                $this->builds++;
+                $this->to('bob@example.com')->plain('Built')->attachData('x', 'x.txt', 'text/plain');
+            }
+        };
+
+        $first = $mail->render();
+        $second = $mail->render();
+
+        $this->assertSame(1, $mail->builds);
+        $this->assertCount(1, $mail->attachments);
+        $this->assertStringContainsString('Built', $first);
+        $this->assertSame(substr_count($first, 'filename=x.txt'), substr_count($second, 'filename=x.txt'));
+    }
+
+    public function test_sender_defaults_to_the_mail_from_config(): void
+    {
+        config()->set('mail.from', ['address' => 'app@example.com', 'name' => 'Example App']);
+
+        $headers = $this->headers((new GMailable(subject: 'Hi'))->to('bob@example.com')->plain('Hi')->render());
+
+        $this->assertSame('Example App <app@example.com>', $headers['From']);
+    }
+
+    public function test_from_setter_overrides_the_default_sender(): void
+    {
+        $headers = $this->headers((new GMailable)->from('me@example.com')->to('bob@example.com')->plain('Hi')->render());
+
+        $this->assertSame('me@example.com', $headers['From']);
+    }
+
+    public function test_missing_sender_throws(): void
+    {
+        config()->set('mail.from.address', null);
+
+        $this->expectException(GmailException::class);
+        $this->expectExceptionMessage('GMailable has no sender');
+
+        (new GMailable)->to('bob@example.com')->plain('Hi')->render();
     }
 }

@@ -11,6 +11,11 @@ class GmailException extends RuntimeException
         return new static("Gmail token file [{$path}] not found. Run `php artisan gmail-api:access-token {$account}` first.");
     }
 
+    public static function missingSender(): static
+    {
+        return new static('GMailable has no sender: pass $from or set mail.from.address.');
+    }
+
     public static function tokenInvalid(string $path): static
     {
         return new static("Gmail token file [{$path}] does not contain valid JSON.");

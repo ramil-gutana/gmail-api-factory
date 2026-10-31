@@ -8,6 +8,19 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-31
+
+### Added
+
+- `gmail-api:make-mailable {name} [--view[=name]] [--force]` generates a `GMailable`
+  subclass in `App\Mail\Gmail`, optionally with a Blade view
+  (default `mail.gmail.<kebab-name>`). Stubs can be published with
+  `php artisan vendor:publish --tag=gmail-stubs` and are picked up from `stubs/`.
+- `GMailable::build()` hook, run once before the first render, for subclasses to set
+  recipients, body and attachments.
+- `GMailable::from()` setter; the constructor's `$from` is now optional and falls back
+  to `mail.from.address`/`mail.from.name` (a `GmailException` is thrown if neither is set).
+
 ## [2.0.0] - 2026-10-31
 
 ### Changed

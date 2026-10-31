@@ -86,6 +86,39 @@ $mail = (new GMailable('Support <support@example.com>', 'Your invoice'))
 $id = Gmail::using('support')->send($mail);
 ```
 
+### Mailable classes
+
+Generate a reusable mailable class in `app/Mail/Gmail`:
+
+```bash
+php artisan gmail-api:make-mailable OrderShipped
+php artisan gmail-api:make-mailable Orders/OrderShipped --view            # + resources/views/mail/gmail/orders/order-shipped.blade.php
+php artisan gmail-api:make-mailable OrderShipped --view=emails.shipped    # custom view name
+```
+
+Configure the message in `build()`, which runs once before the message is rendered.
+When no sender is given, `mail.from` from your app config is used:
+
+```php
+class OrderShipped extends GMailable
+{
+    public function __construct(public Order $order)
+    {
+        parent::__construct(subject: "Order #{$order->id} shipped");
+    }
+
+    protected function build(): void
+    {
+        $this->to($this->order->customer_email)
+            ->view('mail.gmail.order-shipped', ['order' => $this->order]);
+    }
+}
+
+Gmail::send(new OrderShipped($order));
+```
+
+Customise the generated code with `php artisan vendor:publish --tag=gmail-stubs`.
+
 Reply on an existing thread:
 
 ```php

@@ -2,6 +2,7 @@
 
 namespace App\Shared\Gmail;
 
+use App\Shared\Gmail\Exceptions\GmailException;
 use Illuminate\Support\Facades\View;
 use Illuminate\View\View as LaravelView;
 use Symfony\Component\Mime\Address;
@@ -48,10 +49,22 @@ class GMailable
      */
     public ?string $threadId = null;
 
+    private bool $built = false;
+
+    /**
+     * An empty $from falls back to the mail.from address and name of the app config.
+     */
     public function __construct(
-        public string $from,
+        public string $from = '',
         public string $subject = ''
     ) {}
+
+    public function from(string $from): static
+    {
+        $this->from = $from;
+
+        return $this;
+    }
 
     public function to(string|array|null $to): static
     {
@@ -169,14 +182,28 @@ class GMailable
     }
 
     /**
+     * Configure the message (recipients, body, attachments) in a subclass.
+     * Called once, right before the message is first rendered.
+     */
+    protected function build(): void
+    {
+        //
+    }
+
+    /**
      * Build the RFC 2822 message Gmail expects in Message::$raw.
      *
      * @throws Throwable
      */
     public function render(): string
     {
+        if (! $this->built) {
+            $this->built = true;
+            $this->build();
+        }
+
         $email = (new Email)
-            ->from(Address::create($this->from))
+            ->from($this->sender())
             ->subject($this->subject);
 
         $this->addresses($email, 'to', $this->to);
@@ -211,6 +238,24 @@ class GMailable
         $bcc = $email->getHeaders()->get('Bcc');
 
         return ($bcc ? $bcc->toString()."\r\n" : '').$email->toString();
+    }
+
+    /**
+     * @throws GmailException when neither $from nor mail.from.address is set
+     */
+    private function sender(): Address
+    {
+        if ($this->from !== '') {
+            return Address::create($this->from);
+        }
+
+        $address = config('mail.from.address');
+
+        if (! $address) {
+            throw GmailException::missingSender();
+        }
+
+        return new Address($address, (string) config('mail.from.name', ''));
     }
 
     private function addresses(Email $email, string $method, array $addresses): void

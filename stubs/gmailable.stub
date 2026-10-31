@@ -1,0 +1,24 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Shared\Gmail\GMailable;
+
+class {{ class }} extends GMailable
+{
+    /**
+     * Create a new message instance.
+     */
+    public function __construct()
+    {
+        parent::__construct(subject: '{{ subject }}');
+    }
+
+    /**
+     * Build the message: recipients, body and attachments.
+     */
+    protected function build(): void
+    {
+        $this->html('<p>{{ subject }}</p>');
+    }
+}
