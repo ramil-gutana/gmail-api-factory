@@ -99,6 +99,12 @@ Gmail::send($reply);
 
 Note: `send()` returns `"Error: ..."` instead of throwing when the Gmail API rejects the message.
 
+## Errors
+
+- `AccountNotConfiguredException` (an `InvalidArgumentException`): the account is missing from `config/gmail.php`.
+- `GmailException` (a `RuntimeException`): the token file is missing or invalid, or the token cannot be refreshed.
+- `Google\Service\Exception`: the Gmail API rejected a request.
+
 ## Development
 
 ```bash

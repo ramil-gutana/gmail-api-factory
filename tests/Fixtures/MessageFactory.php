@@ -2,6 +2,7 @@
 
 namespace Tests\Fixtures;
 
+use App\Shared\Gmail\Support\Base64Url;
 use Google\Service\Gmail\Message;
 use Google\Service\Gmail\MessagePart;
 use Google\Service\Gmail\MessagePartBody;
@@ -9,16 +10,11 @@ use Google\Service\Gmail\MessagePartHeader;
 
 class MessageFactory
 {
-    public static function encode(string $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    }
-
     public static function part(string $mimeType, ?string $data = null, array $parts = [], ?string $filename = null, ?string $attachmentId = null, array $headers = []): MessagePart
     {
         $body = new MessagePartBody;
         if ($data !== null) {
-            $body->setData(self::encode($data));
+            $body->setData(Base64Url::encode($data));
         }
         if ($attachmentId !== null) {
             $body->setAttachmentId($attachmentId);

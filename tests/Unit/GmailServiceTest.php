@@ -2,7 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Shared\Gmail\GMailable;
 use App\Shared\Gmail\GmailService;
+use App\Shared\Gmail\Support\Base64Url;
 use Google\Client;
 use Google\Service\Gmail;
 use Google\Service\Gmail\ListMessagesResponse;
@@ -129,10 +131,10 @@ class GmailServiceTest extends TestCase
 
         $this->messages->shouldReceive('send')
             ->once()
-            ->with('me', Mockery::on(fn (Message $m) => str_contains(base64_decode(strtr($m->getRaw(), '-_', '+/')), 'Subject: Hello')))
+            ->with('me', Mockery::on(fn (Message $m) => str_contains(Base64Url::decode($m->getRaw()), 'Subject: Hello')))
             ->andReturn($sent);
 
-        $mailable = (new \App\Shared\Gmail\GMailable('me@example.com', 'Hello'))->to('you@example.com')->plain('Hi');
+        $mailable = (new GMailable('me@example.com', 'Hello'))->to('you@example.com')->plain('Hi');
 
         $this->assertSame('sent-1', $this->service->send($mailable));
     }
@@ -176,7 +178,7 @@ class GmailServiceTest extends TestCase
     public function test_get_attachment_returns_decoded_bytes(): void
     {
         $body = new Gmail\MessagePartBody;
-        $body->setData(MessageFactory::encode("%PDF-1.4\xff\xfe binary"));
+        $body->setData(Base64Url::encode("%PDF-1.4\xff\xfe binary"));
 
         $this->attachments->shouldReceive('get')->once()->with('me', 'm1', 'att-1')->andReturn($body);
 
@@ -221,7 +223,7 @@ class GmailServiceTest extends TestCase
             ->with('me', Mockery::on(fn (Message $m) => $m->getThreadId() === 'thread-1'))
             ->andReturn($sent);
 
-        $mailable = (new \App\Shared\Gmail\GMailable('me@example.com', 'Re: Hello'))
+        $mailable = (new GMailable('me@example.com', 'Re: Hello'))
             ->to('you@example.com')
             ->inReplyTo('<abc@mail.gmail.com>', 'thread-1')
             ->plain('Thanks');

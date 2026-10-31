@@ -8,6 +8,29 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-31
+
+### Added
+
+- `Exceptions\GmailException` (extends `RuntimeException`) for token problems and
+  `Exceptions\AccountNotConfiguredException` (extends `InvalidArgumentException`), so
+  existing `catch` blocks keep working.
+- `GMailable::MODE_HTML`, `MODE_PLAIN` and `MODE_VIEW` constants.
+
+### Changed
+
+- Split `GmailService` internals into `Support\SearchQuery` (filter → Gmail query),
+  `Support\MessageParser` (API message → array) and `Support\Base64Url`; the service
+  now only talks to the API. `markAsRead()` reuses `modifyLabels()`.
+- `GoogleClientFactory` exposes `configure()`, `refresh()`, `readToken()` and
+  `saveToken()`; the `gmail-api:access-token` command uses them instead of its own
+  copy of the client setup and refresh logic, and resolves `Google\Client` from the container.
+- `gmail-api:access-token` messages are reworded consistently, e.g.
+  `Gmail account [x] is not configured.` and `Token for account [x] refreshed.`
+- `GmailService::send()` declares its actual `string` return type.
+- `GmailManager` is bound by class name with `gmail.manager` as its alias; the facade
+  docblock reflects that `using()` returns `GmailService`.
+
 ## [1.2.0] - 2026-10-31
 
 ### Added

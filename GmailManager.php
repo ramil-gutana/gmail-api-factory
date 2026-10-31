@@ -2,6 +2,8 @@
 
 namespace App\Shared\Gmail;
 
+use App\Shared\Gmail\Exceptions\AccountNotConfiguredException;
+use App\Shared\Gmail\Exceptions\GmailException;
 use App\Shared\Gmail\Factory\GoogleClientFactory;
 use Google\Exception;
 
@@ -19,6 +21,8 @@ class GmailManager
      * Get the service for an account, or the default account when none is given.
      * Services are created once per account and reused.
      *
+     * @throws AccountNotConfiguredException
+     * @throws GmailException
      * @throws Exception
      */
     public function using(?string $account = null): GmailService
@@ -48,6 +52,8 @@ class GmailManager
     }
 
     /**
+     * @throws AccountNotConfiguredException
+     * @throws GmailException
      * @throws Exception
      */
     protected function make(string $account): GmailService
@@ -55,12 +61,10 @@ class GmailManager
         $config = config("gmail.accounts.{$account}");
 
         if (! $config) {
-            throw new \InvalidArgumentException("Gmail account [$account] is not configured.");
+            throw new AccountNotConfiguredException($account);
         }
 
-        $client = GoogleClientFactory::make($config + ['name' => $account]);
-
-        return new GmailService($client);
+        return new GmailService(GoogleClientFactory::make($config + ['name' => $account]));
     }
 
     /**

@@ -2,11 +2,12 @@
 
 namespace App\Shared\Gmail\Commands;
 
+use App\Shared\Gmail\Exceptions\AccountNotConfiguredException;
+use App\Shared\Gmail\Exceptions\GmailException;
+use App\Shared\Gmail\Factory\GoogleClientFactory;
 use Google\Client;
 use Google\Exception;
 use Illuminate\Console\Command;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\File;
 
 class GenerateGmailAccessToken extends Command
 {
@@ -20,70 +21,62 @@ class GenerateGmailAccessToken extends Command
     public function handle(): int
     {
         $account = $this->argument('account');
-        $config = config("gmail.accounts.{$account}", null);
+        $config = config("gmail.accounts.{$account}");
 
         if (empty($config)) {
-            $this->error("Gmail config for account : {$account} not found");
+            $this->error((new AccountNotConfiguredException($account))->getMessage());
 
             return self::FAILURE;
         }
 
-        $client = new Client;
-        $client->setAuthConfig($config['credentials']);
-        $client->setScopes($config['scopes']);
-        $client->setAccessType('offline');
-        $client->setPrompt('select_account consent');
-        $accessToken = [];
-        if (file_exists($config['token'])) {
-            $accessToken = json_decode(file_get_contents($config['token']), true);
-            $client->setAccessToken($accessToken);
-        }
+        $config += ['name' => $account];
+        $client = GoogleClientFactory::configure($config, $this->laravel->make(Client::class), 'select_account consent');
 
-        if (empty($accessToken)) {
-            $authUrl = $client->createAuthUrl();
-            $this->info("Open the following link in your browser: $authUrl");
-            $verificationCode = $this->ask('Enter verification code:');
-            $accessToken = $client->fetchAccessTokenWithAuthCode($verificationCode);
+        try {
+            $token = GoogleClientFactory::readToken($config['token']);
 
-            if (Arr::has($accessToken, 'error')) {
-                $this->error("Error: cannot generate token {$accessToken['error']}");
-
-                return self::FAILURE;
-            }
-
-            $client->setAccessToken($accessToken);
-            File::ensureDirectoryExists(dirname($config['token']));
-            File::put($config['token'], json_encode($client->getAccessToken(), JSON_PRETTY_PRINT));
-        } else {
-            if ($client->isAccessTokenExpired()) {
-                if (! $client->getRefreshToken()) {
-                    $this->error("The token of {$account} expired and has no refresh token. Delete {$config['token']} and run this command again.");
-
-                    return self::FAILURE;
-                }
-
-                $refreshToken = $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
-
-                if (Arr::has($refreshToken, 'error')) {
-                    $this->error("Error: cannot refresh token {$refreshToken['error']}");
-
-                    return self::FAILURE;
-                }
-
-                $newAccessToken = array_merge($accessToken, $refreshToken);
-                $client->setAccessToken($newAccessToken);
-                File::put($config['token'], json_encode($newAccessToken, JSON_PRETTY_PRINT));
-                $this->info("An Refresh Token for account {$account} successfully generated");
+            if ($token === null) {
+                $this->authorize($client, $config);
+                $this->info("Token created for account [{$account}].");
 
                 return self::SUCCESS;
             }
-            $this->info("The token of {$account} have not been expired");
+
+            $client->setAccessToken($token);
+
+            if (! $client->isAccessTokenExpired()) {
+                $this->info("Token for account [{$account}] has not expired.");
+
+                return self::SUCCESS;
+            }
+
+            GoogleClientFactory::refresh($client, $config);
+            $this->info("Token for account [{$account}] refreshed.");
 
             return self::SUCCESS;
+        } catch (GmailException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
+    }
+
+    /**
+     * Run the interactive OAuth consent flow and save the resulting token.
+     *
+     * @throws GmailException
+     */
+    protected function authorize(Client $client, array $config): void
+    {
+        $this->info('Open the following link in your browser: '.$client->createAuthUrl());
+
+        $response = $client->fetchAccessTokenWithAuthCode($this->ask('Enter verification code:'));
+
+        if (isset($response['error'])) {
+            throw GmailException::authorizationFailed($config['name'], $response);
         }
 
-        $this->info("Token created for account {$account}");
-
-        return self::SUCCESS;
+        $client->setAccessToken($response);
+        GoogleClientFactory::saveToken($config['token'], $client->getAccessToken());
     }
 }

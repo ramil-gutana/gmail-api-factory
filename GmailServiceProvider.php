@@ -16,13 +16,10 @@ class GmailServiceProvider extends ServiceProvider
             GenerateGmailAccessToken::class,
         ]);
 
-        $this->app->singleton('gmail.manager', function () {
-            return new GmailManager;
-        });
+        $this->app->singleton(GmailManager::class);
+        $this->app->alias(GmailManager::class, 'gmail.manager');
 
-        $this->app->alias('gmail.manager', GmailManager::class);
-
-        $this->app->bind(GmailServiceInterface::class, fn ($app) => $app['gmail.manager']->using());
+        $this->app->bind(GmailServiceInterface::class, fn ($app) => $app->make(GmailManager::class)->using());
     }
 
     public function boot(): void

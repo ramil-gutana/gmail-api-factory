@@ -6,6 +6,7 @@ use App\Shared\Gmail\Facade\Gmail;
 use App\Shared\Gmail\GmailManager;
 use App\Shared\Gmail\GmailService;
 use App\Shared\Gmail\Interfaces\GmailServiceInterface;
+use App\Shared\Gmail\Exceptions\AccountNotConfiguredException;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -58,10 +59,15 @@ class GmailManagerTest extends TestCase
 
     public function test_unknown_account_throws(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Gmail account [nope] is not configured.');
-
-        Gmail::using('nope');
+        try {
+            Gmail::using('nope');
+            $this->fail('Expected an exception.');
+        } catch (AccountNotConfiguredException $e) {
+            // Still an InvalidArgumentException, so existing catch blocks keep working.
+            $this->assertInstanceOf(InvalidArgumentException::class, $e);
+            $this->assertSame('nope', $e->account);
+            $this->assertSame('Gmail account [nope] is not configured.', $e->getMessage());
+        }
     }
 
     public function test_it_resolves_named_and_default_accounts(): void

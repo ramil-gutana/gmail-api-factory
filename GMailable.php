@@ -10,6 +10,12 @@ use Throwable;
 
 class GMailable
 {
+    public const MODE_HTML = 'html';
+
+    public const MODE_PLAIN = 'plain';
+
+    public const MODE_VIEW = 'view';
+
     public array $to = [];
 
     public array $cc = [];
@@ -85,7 +91,7 @@ class GMailable
     public function view(string $view, array $data = []): static
     {
         $this->body = View::make($view, $data);
-        $this->mode = 'view';
+        $this->mode = self::MODE_VIEW;
 
         return $this;
     }
@@ -93,7 +99,7 @@ class GMailable
     public function html(string $html): static
     {
         $this->body = $html;
-        $this->mode = 'html';
+        $this->mode = self::MODE_HTML;
 
         return $this;
     }
@@ -101,7 +107,7 @@ class GMailable
     public function plain(string $plain): static
     {
         $this->body = $plain;
-        $this->mode = 'plain';
+        $this->mode = self::MODE_PLAIN;
 
         return $this;
     }
@@ -180,7 +186,7 @@ class GMailable
 
         $body = $this->renderBody();
 
-        if ($this->mode === 'plain') {
+        if ($this->mode === self::MODE_PLAIN) {
             $email->text($body);
         } else {
             $email->html($body);
