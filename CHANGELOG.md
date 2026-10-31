@@ -8,6 +8,20 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-31
+
+### Changed
+
+- **Breaking:** requires PHP ^8.3 and Laravel 13 (`illuminate/*` ^13.0); support for
+  PHP 8.1/8.2 and Laravel 10–12 is dropped. Tested on PHP 8.3 and 8.5.
+- Dependencies raised to `google/apiclient` ^2.20 and `symfony/mime` ^7.4|^8.0;
+  dev dependencies to `orchestra/testbench` ^11, `phpunit/phpunit` ^12|^13 (13 needs
+  PHP 8.4+) and `mockery/mockery` ^1.6.12.
+- `gmail-api:access-token` is declared with Laravel 13's `#[Signature]` and
+  `#[Description]` attributes.
+- Class constants are typed (`const string`, `const array`) and token files are
+  checked with `json_validate()` before decoding.
+
 ## [1.2.1] - 2026-10-31
 
 ### Added

@@ -86,7 +86,8 @@ class GoogleClientFactory
             return null;
         }
 
-        $token = json_decode(file_get_contents($path), true);
+        $contents = file_get_contents($path);
+        $token = json_validate($contents) ? json_decode($contents, true) : null;
 
         if (! is_array($token)) {
             throw GmailException::tokenInvalid($path);

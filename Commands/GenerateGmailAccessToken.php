@@ -7,14 +7,14 @@ use App\Shared\Gmail\Exceptions\GmailException;
 use App\Shared\Gmail\Factory\GoogleClientFactory;
 use Google\Client;
 use Google\Exception;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+#[Signature('gmail-api:access-token {account}')]
+#[Description('Generate or refresh the OAuth access token of a configured Gmail account')]
 class GenerateGmailAccessToken extends Command
 {
-    protected $signature = 'gmail-api:access-token {account}';
-
-    protected $description = 'Generate or refresh the OAuth access token of a configured Gmail account';
-
     /**
      * @throws Exception
      */

@@ -18,7 +18,7 @@ class GmailService implements GmailServiceInterface
     /**
      * Gmail API alias for the authenticated user.
      */
-    protected const USER = 'me';
+    protected const string USER = 'me';
 
     protected Gmail $gmail;
 

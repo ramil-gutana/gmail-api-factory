@@ -10,7 +10,7 @@ final class SearchQuery
     /**
      * Filters that are Gmail "has:<value>" flags rather than "<name>:<value>" pairs.
      */
-    private const HAS_FLAGS = [
+    private const array HAS_FLAGS = [
         'has_attachment' => 'attachment',
         'has_userlabels' => 'userlabels',
         'has_nouserlabels' => 'nouserlabels',

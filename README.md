@@ -3,7 +3,7 @@
 A multi-account Gmail API wrapper for Laravel: fetch, send, label and trash
 messages through the Gmail REST API with OAuth tokens stored per account.
 
-Requires PHP 8.1+ and Laravel 10, 11 or 12.
+Requires PHP 8.3+ (tested on 8.3 and 8.5) and Laravel 13.
 
 ## Installation
 

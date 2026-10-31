@@ -10,11 +10,11 @@ use Throwable;
 
 class GMailable
 {
-    public const MODE_HTML = 'html';
+    public const string MODE_HTML = 'html';
 
-    public const MODE_PLAIN = 'plain';
+    public const string MODE_PLAIN = 'plain';
 
-    public const MODE_VIEW = 'view';
+    public const string MODE_VIEW = 'view';
 
     public array $to = [];
 
