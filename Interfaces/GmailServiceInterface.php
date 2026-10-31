@@ -10,5 +10,5 @@ interface GmailServiceInterface
 
     public function send(GMailable $mailable): string|array;
 
-    public function markAsRead(string $threadId): bool;
+    public function markAsRead(string $messageId): bool;
 }

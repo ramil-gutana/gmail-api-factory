@@ -34,9 +34,18 @@ class GmailService implements GmailServiceInterface
         'in' => '',
     ];
 
-    public function __construct(protected Client $client)
+    /**
+     * Filters that are Gmail "has:<value>" operators rather than "<name>:<value>" pairs.
+     */
+    protected array $hasFilters = [
+        'has_attachment' => 'attachment',
+        'has_userlabels' => 'userlabels',
+        'has_nouserlabels' => 'nouserlabels',
+    ];
+
+    public function __construct(protected Client $client, ?Gmail $gmail = null)
     {
-        $this->gmail = new Gmail($this->client);
+        $this->gmail = $gmail ?? new Gmail($this->client);
     }
 
     /**
@@ -76,7 +85,7 @@ class GmailService implements GmailServiceInterface
 
     private function getHeader(MessagePart $payload, $name)
     {
-        foreach ($payload->getHeaders() as $header) {
+        foreach ($payload->getHeaders() ?? [] as $header) {
             if (strtolower($header->getName()) === strtolower($name)) {
                 return $header->getValue();
             }
@@ -95,13 +104,14 @@ class GmailService implements GmailServiceInterface
 
         $processPart = function (MessagePart $part, &$result) use (&$processPart) {
             $mimeType = $part->getMimeType();
-            $bodyData = base64_decode(strtr($part->getBody()->getData(), '-_', '+/'));
+            $body = $part->getBody();
+            $bodyData = $body?->getData() ? $this->decode($body->getData()) : '';
 
-            if ($part->getFilename() && $part->getBody()->getAttachmentId()) {
+            if ($part->getFilename() && $body?->getAttachmentId()) {
                 $result['attachments'][] = [
                     'filename' => $part->getFilename(),
                     'mimeType' => $mimeType,
-                    'attachmentId' => $part->getBody()->getAttachmentId(),
+                    'attachmentId' => $body->getAttachmentId(),
                 ];
             }
 
@@ -134,19 +144,34 @@ class GmailService implements GmailServiceInterface
         $newFilter = array_filter($newFilter, fn ($value) => ! empty($value));
         $queryString = [];
         foreach ($newFilter as $name => $value) {
+            if (isset($this->hasFilters[$name])) {
+                $queryString[] = 'has:'.$this->hasFilters[$name];
+
+                continue;
+            }
+
             $subFilters = [];
-            if (is_array($value)) {
-                foreach ($value as $subValue) {
-                    $subFilters[] = "$name:$subValue";
-                }
-            } else {
-                $subFilters[] = "$name:$value";
+            foreach ((array) $value as $subValue) {
+                $subFilters[] = "$name:".$this->quote((string) $subValue);
             }
             $queryString[] = count($subFilters) > 1 ? '('.implode(' OR ', $subFilters).')' : $subFilters[0];
         }
 
         return implode(' ', $queryString);
+    }
 
+    private function quote(string $value): string
+    {
+        if (! preg_match('/[\s()"]/', $value)) {
+            return $value;
+        }
+
+        return '"'.str_replace('"', '', $value).'"';
+    }
+
+    private function decode(string $data): string
+    {
+        return (string) base64_decode(strtr($data, '-_', '+/'));
     }
 
     /**
@@ -172,12 +197,14 @@ class GmailService implements GmailServiceInterface
     /**
      * @throws Exception
      */
-    public function markAsRead(string $threadId): bool
+    public function markAsRead(string $messageId): bool
     {
         $mods = new Gmail\ModifyMessageRequest;
 
         $mods->setRemoveLabelIds(['UNREAD']);
 
-        return $this->gmail->users_messages->modify('me', $threadId, $mods)->valid();
+        $message = $this->gmail->users_messages->modify('me', $messageId, $mods);
+
+        return ! in_array('UNREAD', $message->getLabelIds() ?? [], true);
     }
 }

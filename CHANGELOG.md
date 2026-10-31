@@ -8,6 +8,26 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-31
+
+### Fixed
+
+- `markAsRead()` now reports success based on the `UNREAD` label being removed;
+  it used to return the label iterator state, so it returned `false` for messages
+  with no labels left. The parameter is renamed to `$messageId` to match what it is.
+- `has_attachment`, `has_userlabels` and `has_nouserlabels` filters now produce
+  Gmail's `has:<value>` operators instead of unsupported `has_attachment:1` terms.
+- Filter values containing spaces or parentheses are quoted (`subject:"Monthly report"`).
+- Parsing no longer passes `null` to `strtr()` for multipart parts without body data,
+  and tolerates parts without headers.
+- `GoogleClientFactory` throws a clear error when the token file is missing or invalid,
+  refreshes expired tokens itself instead of shelling out to Artisan, and fails loudly
+  when the refresh is rejected.
+- `gmail-api:access-token` stops with a failure exit code when the account is not
+  configured or Google returns an error, creates the token directory if needed, and
+  has a real description.
+- `Gmail` facade docblock names the `using()` argument `$account`.
+
 ## [1.0.0] - 2026-10-31
 
 ### Added

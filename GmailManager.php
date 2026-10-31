@@ -21,7 +21,7 @@ class GmailManager
             throw new \InvalidArgumentException("Gmail account [$account] is not configured.");
         }
 
-        $client = GoogleClientFactory::make($config);
+        $client = GoogleClientFactory::make($config + ['name' => $account]);
 
         return new GmailService($client);
     }

@@ -7,7 +7,7 @@ use App\Shared\Gmail\Interfaces\GmailServiceInterface;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static GmailServiceInterface using(string $plainText)
+ * @method static GmailServiceInterface using(string $account)
  *
  * @see GmailManager
  */

@@ -12,18 +12,20 @@ class GenerateGmailAccessToken extends Command
 {
     protected $signature = 'gmail-api:access-token {account}';
 
-    protected $description = 'Command description';
+    protected $description = 'Generate or refresh the OAuth access token of a configured Gmail account';
 
     /**
      * @throws Exception
      */
-    public function handle()
+    public function handle(): int
     {
         $account = $this->argument('account');
         $config = config("gmail.accounts.{$account}", null);
 
         if (empty($config)) {
             $this->error("Gmail config for account : {$account} not found");
+
+            return self::FAILURE;
         }
 
         $client = new Client;
@@ -44,19 +46,33 @@ class GenerateGmailAccessToken extends Command
             $accessToken = $client->fetchAccessTokenWithAuthCode($verificationCode);
 
             if (Arr::has($accessToken, 'error')) {
-                $this->info("Error: cannot generate token {$accessToken['error']}");
+                $this->error("Error: cannot generate token {$accessToken['error']}");
+
+                return self::FAILURE;
             }
 
             $client->setAccessToken($accessToken);
+            File::ensureDirectoryExists(dirname($config['token']));
             File::put($config['token'], json_encode($client->getAccessToken(), JSON_PRETTY_PRINT));
         } else {
             if ($client->isAccessTokenExpired()) {
-                if ($client->getRefreshToken()) {
-                    $refreshToken = $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
-                    $newAccessToken = array_merge($accessToken, $refreshToken);
-                    $client->setAccessToken($newAccessToken);
-                    File::put($config['token'], json_encode($newAccessToken, JSON_PRETTY_PRINT));
+                if (! $client->getRefreshToken()) {
+                    $this->error("The token of {$account} expired and has no refresh token. Delete {$config['token']} and run this command again.");
+
+                    return self::FAILURE;
                 }
+
+                $refreshToken = $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
+
+                if (Arr::has($refreshToken, 'error')) {
+                    $this->error("Error: cannot refresh token {$refreshToken['error']}");
+
+                    return self::FAILURE;
+                }
+
+                $newAccessToken = array_merge($accessToken, $refreshToken);
+                $client->setAccessToken($newAccessToken);
+                File::put($config['token'], json_encode($newAccessToken, JSON_PRETTY_PRINT));
                 $this->info("An Refresh Token for account {$account} successfully generated");
 
                 return self::SUCCESS;
