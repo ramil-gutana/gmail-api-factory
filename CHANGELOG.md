@@ -8,6 +8,31 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-31
+
+### Added
+
+- `GmailService::fetchPage($filters, $maxResults, $pageToken)` for pagination;
+  `fetchMessages()` accepts `$maxResults` (default stays 10).
+- `getMessage($id)`, `getAttachment($messageId, $attachmentId)`, `markAsUnread()`,
+  `modifyLabels($id, $add, $remove)`, `trash()` and `untrash()`.
+- Parsed messages also include `threadId`, `labelIds`, `snippet`, `messageId`
+  (the `Message-ID` header, usable with `GMailable::inReplyTo()`) and `date`.
+- Publishable `config/gmail.php` (`php artisan vendor:publish --tag=gmail-config`)
+  with a `default` account (`GMAIL_ACCOUNT`).
+- `GmailManager` caches one service per account, `using()` without an argument
+  returns the default account, `forget()` clears the cache, and unknown methods are
+  forwarded to the default account (`Gmail::fetchMessages()`).
+- `GmailManager::class` resolves to the `gmail.manager` singleton.
+
+### Changed
+
+- Resolving `GmailServiceInterface` from the container now returns the default
+  account's authenticated service (it previously built a `GmailService` around an
+  unauthenticated Google client).
+- `GmailServiceInterface` declares the new methods; custom implementations of the
+  interface need to add them.
+
 ## [1.1.0] - 2026-10-31
 
 ### Added

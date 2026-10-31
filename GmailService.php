@@ -51,36 +51,76 @@ class GmailService implements GmailServiceInterface
     /**
      * @throws Exception
      */
-    public function fetchMessages(array $filters = []): array
+    public function fetchMessages(array $filters = [], int $maxResults = 10): array
     {
+        return $this->fetchPage($filters, $maxResults)['messages'];
+    }
 
-        $queryFilter = $this->generateQueryString($filters);
+    /**
+     * Fetch one page of messages. Pass the returned nextPageToken back in to
+     * get the following page; it is null on the last page.
+     *
+     * @return array{messages: array, nextPageToken: ?string, resultSizeEstimate: ?int}
+     *
+     * @throws Exception
+     */
+    public function fetchPage(array $filters = [], int $maxResults = 10, ?string $pageToken = null): array
+    {
+        $params = array_filter([
+            'q' => $this->generateQueryString($filters),
+            'maxResults' => $maxResults,
+            'pageToken' => $pageToken,
+        ], fn ($value) => $value !== null && $value !== '');
 
-        $messages = $this->gmail->users_messages->listUsersMessages('me', [
-            'q' => $queryFilter,
-            'maxResults' => 10,
-        ]);
+        $messages = $this->gmail->users_messages->listUsersMessages('me', $params);
 
         $result = [];
 
-        if ($messages->getMessages()) {
-            foreach ($messages->getMessages() as $message) {
-                $message = $this->gmail->users_messages->get('me', $message->id, ['format' => 'full']);
-                $payload = $message->getPayload();
-
-                $result[] = [
-                    'id' => $message->id,
-                    'from' => $this->getHeader($payload, 'From'),
-                    'to' => $this->getHeader($payload, 'To'),
-                    'subject' => $this->getHeader($payload, 'Subject'),
-                    'cc' => $this->getHeader($payload, 'Cc'),
-                    'bcc' => $this->getHeader($payload, 'Bcc'),
-                    'body' => $this->getMessagePart($payload),
-                ];
-            }
+        foreach ($messages->getMessages() ?? [] as $message) {
+            $result[] = $this->getMessage($message->getId());
         }
 
-        return $result;
+        return [
+            'messages' => $result,
+            'nextPageToken' => $messages->getNextPageToken(),
+            'resultSizeEstimate' => $messages->getResultSizeEstimate(),
+        ];
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getMessage(string $messageId): array
+    {
+        $message = $this->gmail->users_messages->get('me', $messageId, ['format' => 'full']);
+        $payload = $message->getPayload();
+
+        return [
+            'id' => $message->getId(),
+            'threadId' => $message->getThreadId(),
+            'labelIds' => $message->getLabelIds() ?? [],
+            'snippet' => $message->getSnippet(),
+            'messageId' => $this->getHeader($payload, 'Message-ID'),
+            'date' => $this->getHeader($payload, 'Date'),
+            'from' => $this->getHeader($payload, 'From'),
+            'to' => $this->getHeader($payload, 'To'),
+            'subject' => $this->getHeader($payload, 'Subject'),
+            'cc' => $this->getHeader($payload, 'Cc'),
+            'bcc' => $this->getHeader($payload, 'Bcc'),
+            'body' => $this->getMessagePart($payload),
+        ];
+    }
+
+    /**
+     * Download an attachment listed in a message's body.attachments and return its raw bytes.
+     *
+     * @throws Exception
+     */
+    public function getAttachment(string $messageId, string $attachmentId): string
+    {
+        $attachment = $this->gmail->users_messages_attachments->get('me', $messageId, $attachmentId);
+
+        return $this->decode((string) $attachment->getData());
     }
 
     private function getHeader(MessagePart $payload, $name)
@@ -210,5 +250,43 @@ class GmailService implements GmailServiceInterface
         $message = $this->gmail->users_messages->modify('me', $messageId, $mods);
 
         return ! in_array('UNREAD', $message->getLabelIds() ?? [], true);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function markAsUnread(string $messageId): bool
+    {
+        return in_array('UNREAD', $this->modifyLabels($messageId, ['UNREAD']), true);
+    }
+
+    /**
+     * Add and/or remove label IDs on a message and return its resulting label IDs.
+     *
+     * @throws Exception
+     */
+    public function modifyLabels(string $messageId, array $add = [], array $remove = []): array
+    {
+        $mods = new Gmail\ModifyMessageRequest;
+        $mods->setAddLabelIds($add);
+        $mods->setRemoveLabelIds($remove);
+
+        return $this->gmail->users_messages->modify('me', $messageId, $mods)->getLabelIds() ?? [];
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function trash(string $messageId): bool
+    {
+        return in_array('TRASH', $this->gmail->users_messages->trash('me', $messageId)->getLabelIds() ?? [], true);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function untrash(string $messageId): bool
+    {
+        return ! in_array('TRASH', $this->gmail->users_messages->untrash('me', $messageId)->getLabelIds() ?? [], true);
     }
 }

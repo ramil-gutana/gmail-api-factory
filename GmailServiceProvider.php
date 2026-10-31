@@ -10,16 +10,27 @@ class GmailServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->mergeConfigFrom(__DIR__.'/config/gmail.php', 'gmail');
+
         $this->commands([
             GenerateGmailAccessToken::class,
         ]);
 
-        $this->app->bind(GmailServiceInterface::class, GmailService::class);
-
         $this->app->singleton('gmail.manager', function () {
             return new GmailManager;
         });
+
+        $this->app->alias('gmail.manager', GmailManager::class);
+
+        $this->app->bind(GmailServiceInterface::class, fn ($app) => $app['gmail.manager']->using());
     }
 
-    public function boot(): void {}
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/config/gmail.php' => config_path('gmail.php'),
+            ], 'gmail-config');
+        }
+    }
 }

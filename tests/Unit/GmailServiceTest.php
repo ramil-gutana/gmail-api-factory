@@ -17,6 +17,8 @@ class GmailServiceTest extends TestCase
 {
     protected MockInterface $messages;
 
+    protected MockInterface $attachments;
+
     protected GmailService $service;
 
     protected function setUp(): void
@@ -26,7 +28,9 @@ class GmailServiceTest extends TestCase
         $client = new Client;
         $gmail = new Gmail($client);
         $this->messages = Mockery::mock(Gmail\Resource\UsersMessages::class);
+        $this->attachments = Mockery::mock(Gmail\Resource\UsersMessagesAttachments::class);
         $gmail->users_messages = $this->messages;
+        $gmail->users_messages_attachments = $this->attachments;
 
         $this->service = new GmailService($client, $gmail);
     }
@@ -131,5 +135,97 @@ class GmailServiceTest extends TestCase
         $mailable = (new \App\Shared\Gmail\GMailable('me@example.com', 'Hello'))->to('you@example.com')->plain('Hi');
 
         $this->assertSame('sent-1', $this->service->send($mailable));
+    }
+
+    public function test_fetch_page_passes_page_token_and_returns_the_next_one(): void
+    {
+        $list = new ListMessagesResponse;
+        $list->setMessages([MessageFactory::message('m2', MessageFactory::part('text/plain'))]);
+        $list->setNextPageToken('page-3');
+        $list->setResultSizeEstimate(42);
+
+        $this->messages->shouldReceive('listUsersMessages')
+            ->once()
+            ->with('me', ['q' => 'is:unread', 'maxResults' => 50, 'pageToken' => 'page-2'])
+            ->andReturn($list);
+        $this->messages->shouldReceive('get')->andReturn(MessageFactory::message('m2', MessageFactory::part('text/plain', 'Hi', headers: [
+            'Message-ID' => '<m2@mail.gmail.com>',
+            'Date' => 'Sat, 31 Oct 2026 10:00:00 +0000',
+        ]), ['INBOX'], 't2'));
+
+        $page = $this->service->fetchPage(['is' => 'unread'], 50, 'page-2');
+
+        $this->assertSame('page-3', $page['nextPageToken']);
+        $this->assertSame(42, $page['resultSizeEstimate']);
+        $this->assertSame('t2', $page['messages'][0]['threadId']);
+        $this->assertSame(['INBOX'], $page['messages'][0]['labelIds']);
+        $this->assertSame('<m2@mail.gmail.com>', $page['messages'][0]['messageId']);
+        $this->assertSame('Sat, 31 Oct 2026 10:00:00 +0000', $page['messages'][0]['date']);
+    }
+
+    public function test_fetch_messages_accepts_max_results(): void
+    {
+        $this->messages->shouldReceive('listUsersMessages')
+            ->once()
+            ->with('me', ['maxResults' => 100])
+            ->andReturn(new ListMessagesResponse);
+
+        $this->assertSame([], $this->service->fetchMessages([], 100));
+    }
+
+    public function test_get_attachment_returns_decoded_bytes(): void
+    {
+        $body = new Gmail\MessagePartBody;
+        $body->setData(MessageFactory::encode("%PDF-1.4\xff\xfe binary"));
+
+        $this->attachments->shouldReceive('get')->once()->with('me', 'm1', 'att-1')->andReturn($body);
+
+        $this->assertSame("%PDF-1.4\xff\xfe binary", $this->service->getAttachment('m1', 'att-1'));
+    }
+
+    public function test_mark_as_unread_and_modify_labels(): void
+    {
+        $this->messages->shouldReceive('modify')
+            ->once()
+            ->with('me', 'm1', Mockery::on(fn (ModifyMessageRequest $r) => $r->getAddLabelIds() === ['UNREAD'] && $r->getRemoveLabelIds() === []))
+            ->andReturn(MessageFactory::message('m1', MessageFactory::part('text/plain'), ['UNREAD', 'INBOX']));
+
+        $this->assertTrue($this->service->markAsUnread('m1'));
+
+        $this->messages->shouldReceive('modify')
+            ->once()
+            ->with('me', 'm1', Mockery::on(fn (ModifyMessageRequest $r) => $r->getAddLabelIds() === ['Label_1'] && $r->getRemoveLabelIds() === ['INBOX']))
+            ->andReturn(MessageFactory::message('m1', MessageFactory::part('text/plain'), ['Label_1']));
+
+        $this->assertSame(['Label_1'], $this->service->modifyLabels('m1', ['Label_1'], ['INBOX']));
+    }
+
+    public function test_trash_and_untrash(): void
+    {
+        $this->messages->shouldReceive('trash')->once()->with('me', 'm1')
+            ->andReturn(MessageFactory::message('m1', MessageFactory::part('text/plain'), ['TRASH']));
+        $this->messages->shouldReceive('untrash')->once()->with('me', 'm1')
+            ->andReturn(MessageFactory::message('m1', MessageFactory::part('text/plain'), ['INBOX']));
+
+        $this->assertTrue($this->service->trash('m1'));
+        $this->assertTrue($this->service->untrash('m1'));
+    }
+
+    public function test_replies_are_sent_on_the_thread(): void
+    {
+        $sent = new Message;
+        $sent->setId('sent-2');
+
+        $this->messages->shouldReceive('send')
+            ->once()
+            ->with('me', Mockery::on(fn (Message $m) => $m->getThreadId() === 'thread-1'))
+            ->andReturn($sent);
+
+        $mailable = (new \App\Shared\Gmail\GMailable('me@example.com', 'Re: Hello'))
+            ->to('you@example.com')
+            ->inReplyTo('<abc@mail.gmail.com>', 'thread-1')
+            ->plain('Thanks');
+
+        $this->assertSame('sent-2', $this->service->send($mailable));
     }
 }
