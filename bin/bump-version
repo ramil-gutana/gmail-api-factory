@@ -1,0 +1,99 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * Bump the package version following Semantic Versioning.
+ *
+ * Usage: php bin/bump-version <major|minor|patch|x.y.z> [--dir=path] [--date=YYYY-MM-DD] [--dry-run]
+ *
+ * Updates the VERSION file and turns the "## [Unreleased]" section of
+ * CHANGELOG.md into a dated release section, leaving a fresh, empty
+ * "## [Unreleased]" heading above it.
+ */
+
+function bump_version(string $current, string $type): string
+{
+    if (preg_match('/^\d+\.\d+\.\d+$/', $type)) {
+        if (version_compare($type, $current, '<=')) {
+            throw new InvalidArgumentException("New version [$type] must be greater than [$current].");
+        }
+
+        return $type;
+    }
+
+    if (! preg_match('/^(\d+)\.(\d+)\.(\d+)$/', $current, $m)) {
+        throw new InvalidArgumentException("Current version [$current] is not a valid x.y.z version.");
+    }
+
+    [$major, $minor, $patch] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+
+    return match ($type) {
+        'major' => ($major + 1).'.0.0',
+        'minor' => "$major.".($minor + 1).'.0',
+        'patch' => "$major.$minor.".($patch + 1),
+        default => throw new InvalidArgumentException("Unknown bump type [$type]. Use major, minor, patch or x.y.z."),
+    };
+}
+
+function release_changelog(string $changelog, string $version, string $date): string
+{
+    if (! str_contains($changelog, '## [Unreleased]')) {
+        throw new RuntimeException('CHANGELOG.md has no "## [Unreleased]" section.');
+    }
+
+    if (str_contains($changelog, "## [$version]")) {
+        throw new RuntimeException("CHANGELOG.md already has a [$version] section.");
+    }
+
+    return preg_replace(
+        '/^## \[Unreleased\]\R/m',
+        "## [Unreleased]\n\n## [$version] - $date\n",
+        $changelog,
+        1
+    );
+}
+
+$args = array_slice($argv, 1);
+$type = null;
+$dir = dirname(__DIR__);
+$date = date('Y-m-d');
+$dryRun = false;
+
+foreach ($args as $arg) {
+    if (str_starts_with($arg, '--dir=')) {
+        $dir = substr($arg, 6);
+    } elseif (str_starts_with($arg, '--date=')) {
+        $date = substr($arg, 7);
+    } elseif ($arg === '--dry-run') {
+        $dryRun = true;
+    } else {
+        $type = $arg;
+    }
+}
+
+if ($type === null) {
+    fwrite(STDERR, "Usage: php bin/bump-version <major|minor|patch|x.y.z> [--dir=path] [--date=YYYY-MM-DD] [--dry-run]\n");
+    exit(1);
+}
+
+$versionFile = $dir.'/VERSION';
+$changelogFile = $dir.'/CHANGELOG.md';
+
+try {
+    $current = is_file($versionFile) ? trim(file_get_contents($versionFile)) : '0.0.0';
+    $next = bump_version($current, $type);
+    $changelog = is_file($changelogFile) ? release_changelog(file_get_contents($changelogFile), $next, $date) : null;
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage()."\n");
+    exit(1);
+}
+
+if (! $dryRun) {
+    file_put_contents($versionFile, $next."\n");
+
+    if ($changelog !== null) {
+        file_put_contents($changelogFile, $changelog);
+    }
+}
+
+echo "$current -> $next".($dryRun ? ' (dry run)' : '')."\n";
