@@ -185,6 +185,10 @@ class GmailService implements GmailServiceInterface
         $message = new Message;
         $message->setRaw($encodedMessage);
 
+        if ($mailable->threadId) {
+            $message->setThreadId($mailable->threadId);
+        }
+
         try {
             $sent = $this->gmail->users_messages->send('me', $message);
 

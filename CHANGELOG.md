@@ -8,6 +8,27 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-31
+
+### Added
+
+- `GMailable` attachments: `attach($path, $name, $mime)` and `attachData($data, $name, $mime)`.
+- `GMailable::altText()` for a plain-text alternative next to an HTML/view body.
+- `GMailable::replyTo()`, `subject()`, `header()` and `inReplyTo($messageId, $threadId)`;
+  `GmailService::send()` files replies under the given Gmail thread.
+- `GMailable::view()` data argument is now optional.
+
+### Changed
+
+- `GMailable::render()` builds the MIME message with `symfony/mime` (new dependency,
+  already shipped with Laravel). Bodies are quoted-printable encoded and a `Date`
+  and `Message-ID` header are added.
+
+### Security
+
+- Header values are encoded, so non-ASCII subjects/names render correctly and
+  CR/LF in a subject or address can no longer inject extra headers.
+
 ## [1.0.1] - 2026-10-31
 
 ### Fixed
