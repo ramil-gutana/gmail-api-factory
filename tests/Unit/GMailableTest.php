@@ -176,4 +176,34 @@ class GMailableTest extends TestCase
 
         (new GMailable)->to('bob@example.com')->plain('Hi')->render();
     }
+
+    public function test_account_option_is_stored(): void
+    {
+        $mail = (new GMailable('a@example.com'))->account('sales');
+
+        $this->assertSame('sales', $mail->account);
+        $this->assertNull($mail->account(null)->account);
+    }
+
+    public function test_sender_defaults_to_the_accounts_from_config(): void
+    {
+        config()->set('mail.from', ['address' => 'app@example.com', 'name' => 'Example App']);
+        config()->set('gmail.accounts.sales.from', 'Sales <sales@example.com>');
+
+        $sales = $this->headers((new GMailable)->account('sales')->to('bob@example.com')->plain('Hi')->render());
+        $explicit = $this->headers((new GMailable('me@example.com'))->account('sales')->to('bob@example.com')->plain('Hi')->render());
+        $noAccountFrom = $this->headers((new GMailable)->account('other')->to('bob@example.com')->plain('Hi')->render());
+
+        $this->assertSame('Sales <sales@example.com>', $sales['From']);
+        $this->assertSame('me@example.com', $explicit['From']);
+        $this->assertSame('Example App <app@example.com>', $noAccountFrom['From']);
+    }
+
+    public function test_default_account_from_is_used_without_an_account(): void
+    {
+        config()->set('gmail.default', 'support');
+        config()->set('gmail.accounts.support.from', 'support@example.com');
+
+        $this->assertSame('support@example.com', $this->headers((new GMailable)->to('bob@example.com')->plain('Hi')->render())['From']);
+    }
 }

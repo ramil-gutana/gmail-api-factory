@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array fetchPage(array $filters = [], int $maxResults = 10, ?string $pageToken = null)
  * @method static array getMessage(string $messageId)
  * @method static string getAttachment(string $messageId, string $attachmentId)
- * @method static string send(GMailable $mailable)
+ * @method static string send(GMailable $mailable) Sends through the mailable's account, or the default one
  * @method static bool markAsRead(string $messageId)
  * @method static bool markAsUnread(string $messageId)
  * @method static array modifyLabels(string $messageId, array $add = [], array $remove = [])

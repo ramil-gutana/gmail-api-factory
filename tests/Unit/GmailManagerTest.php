@@ -2,11 +2,12 @@
 
 namespace Tests\Unit;
 
+use App\Shared\Gmail\Exceptions\AccountNotConfiguredException;
 use App\Shared\Gmail\Facade\Gmail;
+use App\Shared\Gmail\GMailable;
 use App\Shared\Gmail\GmailManager;
 use App\Shared\Gmail\GmailService;
 use App\Shared\Gmail\Interfaces\GmailServiceInterface;
-use App\Shared\Gmail\Exceptions\AccountNotConfiguredException;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -120,5 +121,38 @@ class GmailManagerTest extends TestCase
 
         $this->assertTrue($manager->markAsRead('m1'));
         $this->assertSame(['m1'], $manager->calls);
+    }
+
+    public function test_services_know_their_account(): void
+    {
+        $this->assertSame('sales', Gmail::using('sales')->getAccount());
+        $this->assertSame('support', Gmail::using()->getAccount());
+    }
+
+    public function test_send_routes_to_the_mailables_account(): void
+    {
+        $manager = new class extends GmailManager
+        {
+            public array $accounts = [];
+
+            public function using(?string $account = null): GmailService
+            {
+                $this->accounts[] = $account;
+
+                return new class extends GmailService
+                {
+                    public function __construct() {}
+
+                    public function send(GMailable $mailable): string
+                    {
+                        return 'sent';
+                    }
+                };
+            }
+        };
+
+        $this->assertSame('sent', $manager->send((new GMailable('a@example.com'))->account('sales')));
+        $this->assertSame('sent', $manager->send(new GMailable('a@example.com')));
+        $this->assertSame(['sales', null], $manager->accounts);
     }
 }

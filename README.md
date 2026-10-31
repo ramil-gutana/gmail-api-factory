@@ -86,6 +86,23 @@ $mail = (new GMailable('Support <support@example.com>', 'Your invoice'))
 $id = Gmail::using('support')->send($mail);
 ```
 
+### Choosing the sending account
+
+Set the account on the mailable and let `Gmail::send()` route it:
+
+```php
+$mail = (new GMailable(subject: 'Weekly digest'))
+    ->account('sales')            // a key of gmail.accounts; null = default account
+    ->to('team@example.com')
+    ->plain('...');
+
+Gmail::send($mail);               // sent through the "sales" account
+```
+
+Without an explicit sender, the account's `from` config is used, then `mail.from`.
+Sending a mailable through a different account than the one it is set to
+(`Gmail::using('support')->send($mail)`) throws a `GmailException`.
+
 ### Mailable classes
 
 Generate a reusable mailable class in `app/Mail/Gmail`:
@@ -94,6 +111,7 @@ Generate a reusable mailable class in `app/Mail/Gmail`:
 php artisan gmail-api:make-mailable OrderShipped
 php artisan gmail-api:make-mailable Orders/OrderShipped --view            # + resources/views/mail/gmail/orders/order-shipped.blade.php
 php artisan gmail-api:make-mailable OrderShipped --view=emails.shipped    # custom view name
+php artisan gmail-api:make-mailable SalesDigest --account=sales           # sends through the "sales" account
 ```
 
 Configure the message in `build()`, which runs once before the message is rendered.

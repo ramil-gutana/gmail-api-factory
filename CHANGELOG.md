@@ -8,6 +8,24 @@ Bump the version with `composer bump -- <major|minor|patch|x.y.z>`.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-31
+
+### Added
+
+- `GMailable::account($name)` selects the configured Gmail account a message is sent
+  through; `Gmail::send($mailable)` routes to that account (or the default one).
+- Optional per-account `from` config (`GMAIL_FROM` for the default account), used as
+  the sender when a mailable has none, before falling back to `mail.from`.
+- `GmailService::getAccount()` returns the account a manager-built service uses.
+- `gmail-api:make-mailable --account=<name>` writes `$this->account('<name>')` into the
+  generated class; it warns when the account is not configured and rejects invalid names.
+
+### Changed
+
+- `GmailService::send()` throws a `GmailException` when the mailable is set to a different
+  account than the service is authenticated as, instead of sending from the wrong mailbox.
+- `GmailService` takes an optional third constructor argument, `$account`.
+
 ## [2.1.0] - 2026-10-31
 
 ### Added

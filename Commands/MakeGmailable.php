@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 #[Signature('gmail-api:make-mailable
     {name : The name of the mailable class}
     {--view= : Also create a Blade view for the mailable (optionally give its name)}
+    {--account= : The configured Gmail account the mailable sends through}
     {--f|force : Create the class even if it already exists}')]
 #[Description('Create a new GMailable class')]
 class MakeGmailable extends GeneratorCommand
@@ -24,6 +25,18 @@ class MakeGmailable extends GeneratorCommand
 
     public function handle(): int
     {
+        $account = $this->option('account');
+
+        if ($account !== null && ! preg_match('/^[A-Za-z0-9_.-]+$/', $account)) {
+            $this->components->error("Invalid account name [{$account}].");
+
+            return self::FAILURE;
+        }
+
+        if ($account !== null && ! config("gmail.accounts.{$account}")) {
+            $this->components->warn("Gmail account [{$account}] is not configured yet; add it to config/gmail.php.");
+        }
+
         if (parent::handle() === false && ! $this->option('force')) {
             return self::FAILURE;
         }
@@ -57,11 +70,16 @@ class MakeGmailable extends GeneratorCommand
 
     protected function buildClass($name): string
     {
-        return str_replace(
+        $class = str_replace(
             ['{{ subject }}', '{{ view }}'],
             [$this->subject(), $this->getView()],
             parent::buildClass($name)
         );
+
+        // Drop the whole placeholder line when no account is given.
+        return $this->option('account')
+            ? str_replace('{{ account }}', "\$this->account('{$this->option('account')}');", $class)
+            : preg_replace('/^[ \t]*\{\{ account \}\}\R/m', '', $class);
     }
 
     /**

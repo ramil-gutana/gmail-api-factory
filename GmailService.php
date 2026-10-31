@@ -2,6 +2,7 @@
 
 namespace App\Shared\Gmail;
 
+use App\Shared\Gmail\Exceptions\GmailException;
 use App\Shared\Gmail\Interfaces\GmailServiceInterface;
 use App\Shared\Gmail\Support\Base64Url;
 use App\Shared\Gmail\Support\MessageParser;
@@ -46,9 +47,17 @@ class GmailService implements GmailServiceInterface
         'in' => '',
     ];
 
-    public function __construct(protected Client $client, ?Gmail $gmail = null)
+    public function __construct(protected Client $client, ?Gmail $gmail = null, protected ?string $account = null)
     {
         $this->gmail = $gmail ?? new Gmail($this->client);
+    }
+
+    /**
+     * The configured account name this service is authenticated as, when built by GmailManager.
+     */
+    public function getAccount(): ?string
+    {
+        return $this->account;
     }
 
     /**
@@ -112,10 +121,14 @@ class GmailService implements GmailServiceInterface
     /**
      * Send the message and return its Gmail ID, or "Error: <reason>" when the API rejects it.
      *
+     * @throws GmailException when the mailable is set to a different account
      * @throws Throwable when the message cannot be rendered
      */
     public function send(GMailable $mailable): string
     {
+        if ($mailable->account !== null && $this->account !== null && $mailable->account !== $this->account) {
+            throw GmailException::accountMismatch($mailable->account, $this->account);
+        }
         $message = new Message;
         $message->setRaw(Base64Url::encode($mailable->render()));
 

@@ -12,6 +12,7 @@ class {{ class }} extends GMailable
     public function __construct()
     {
         parent::__construct(subject: '{{ subject }}');
+        {{ account }}
     }
 
     /**

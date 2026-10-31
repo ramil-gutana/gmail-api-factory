@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Shared\Gmail\Exceptions\GmailException;
 use App\Shared\Gmail\GMailable;
 use App\Shared\Gmail\GmailService;
 use App\Shared\Gmail\Support\Base64Url;
@@ -229,5 +230,39 @@ class GmailServiceTest extends TestCase
             ->plain('Thanks');
 
         $this->assertSame('sent-2', $this->service->send($mailable));
+    }
+
+    private function serviceFor(?string $account): GmailService
+    {
+        $client = new Client;
+        $gmail = new Gmail($client);
+        $gmail->users_messages = $this->messages;
+
+        return new GmailService($client, $gmail, $account);
+    }
+
+    public function test_send_rejects_a_mailable_set_to_another_account(): void
+    {
+        $this->messages->shouldNotReceive('send');
+
+        $mailable = (new GMailable('me@example.com', 'Hi'))->account('sales')->to('you@example.com')->plain('Hi');
+
+        $this->expectException(GmailException::class);
+        $this->expectExceptionMessage('account [sales] but was sent through account [support]');
+
+        $this->serviceFor('support')->send($mailable);
+    }
+
+    public function test_send_accepts_a_mailable_for_the_same_or_an_unknown_account(): void
+    {
+        $sent = new Message;
+        $sent->setId('sent-3');
+        $this->messages->shouldReceive('send')->twice()->andReturn($sent);
+
+        $mailable = (new GMailable('me@example.com', 'Hi'))->account('sales')->to('you@example.com')->plain('Hi');
+
+        $this->assertSame('sales', $this->serviceFor('sales')->getAccount());
+        $this->assertSame('sent-3', $this->serviceFor('sales')->send($mailable));
+        $this->assertSame('sent-3', $this->serviceFor(null)->send($mailable));
     }
 }

@@ -13,7 +13,12 @@ class GmailException extends RuntimeException
 
     public static function missingSender(): static
     {
-        return new static('GMailable has no sender: pass $from or set mail.from.address.');
+        return new static('GMailable has no sender: pass $from, or set the account\'s "from" or mail.from.address.');
+    }
+
+    public static function accountMismatch(string $mailable, string $service): static
+    {
+        return new static("GMailable is set to send through account [{$mailable}] but was sent through account [{$service}]. Use Gmail::send() or Gmail::using('{$mailable}').");
     }
 
     public static function tokenInvalid(string $path): static

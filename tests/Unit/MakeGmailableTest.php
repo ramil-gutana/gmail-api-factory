@@ -92,4 +92,41 @@ class MakeGmailableTest extends TestCase
         $this->assertStringContainsString('Subject: Generated Render Check', $raw);
         $this->assertStringContainsString('<p>Generated Render Check</p>', quoted_printable_decode($raw));
     }
+
+    public function test_account_option_sets_the_account_in_the_constructor(): void
+    {
+        config()->set('gmail.accounts.sales', ['credentials' => 'x', 'token' => 'y', 'scopes' => []]);
+
+        $this->artisan('gmail-api:make-mailable', ['name' => 'SalesDigest', '--account' => 'sales'])
+            ->doesntExpectOutputToContain('not configured')
+            ->assertSuccessful();
+
+        $this->assertStringContainsString(
+            "parent::__construct(subject: 'Sales Digest');\n        \$this->account('sales');\n    }",
+            file_get_contents($this->classPath('SalesDigest'))
+        );
+    }
+
+    public function test_without_account_the_placeholder_line_is_removed(): void
+    {
+        $this->artisan('gmail-api:make-mailable', ['name' => 'WelcomeMail', '--view' => null])->assertSuccessful();
+
+        $class = file_get_contents($this->classPath('WelcomeMail'));
+
+        $this->assertStringNotContainsString('{{ account }}', $class);
+        $this->assertStringContainsString("parent::__construct(subject: 'Welcome Mail');\n    }", $class);
+    }
+
+    public function test_unconfigured_account_warns_and_invalid_account_fails(): void
+    {
+        $this->artisan('gmail-api:make-mailable', ['name' => 'Later', '--account' => 'later'])
+            ->expectsOutputToContain('Gmail account [later] is not configured yet')
+            ->assertSuccessful();
+
+        $this->artisan('gmail-api:make-mailable', ['name' => 'Bad', '--account' => "x'); evil();//"])
+            ->expectsOutputToContain('Invalid account name')
+            ->assertFailed();
+
+        $this->assertFileDoesNotExist($this->classPath('Bad'));
+    }
 }

@@ -32,6 +32,18 @@ class GmailManager
         return $this->services[$account] ??= $this->make($account);
     }
 
+    /**
+     * Send a mailable through its own account (GMailable::account()), or the default account.
+     *
+     * @throws AccountNotConfiguredException
+     * @throws GmailException
+     * @throws \Throwable
+     */
+    public function send(GMailable $mailable): string
+    {
+        return $this->using($mailable->account)->send($mailable);
+    }
+
     public function getDefaultAccount(): string
     {
         return config('gmail.default', 'default');
@@ -64,7 +76,7 @@ class GmailManager
             throw new AccountNotConfiguredException($account);
         }
 
-        return new GmailService(GoogleClientFactory::make($config + ['name' => $account]));
+        return new GmailService(GoogleClientFactory::make($config + ['name' => $account]), account: $account);
     }
 
     /**

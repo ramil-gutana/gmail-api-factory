@@ -49,6 +49,12 @@ class GMailable
      */
     public ?string $threadId = null;
 
+    /**
+     * Configured Gmail account (config/gmail.php "accounts" key) to send through;
+     * null uses the default account.
+     */
+    public ?string $account = null;
+
     private bool $built = false;
 
     /**
@@ -62,6 +68,16 @@ class GMailable
     public function from(string $from): static
     {
         $this->from = $from;
+
+        return $this;
+    }
+
+    /**
+     * Send through the given configured Gmail account instead of the default one.
+     */
+    public function account(?string $account): static
+    {
+        $this->account = $account;
 
         return $this;
     }
@@ -241,12 +257,20 @@ class GMailable
     }
 
     /**
-     * @throws GmailException when neither $from nor mail.from.address is set
+     * Resolve the sender: $from, then the account's "from" config, then mail.from.
+     *
+     * @throws GmailException when none of them is set
      */
     private function sender(): Address
     {
         if ($this->from !== '') {
             return Address::create($this->from);
+        }
+
+        $accountFrom = config('gmail.accounts.'.($this->account ?? config('gmail.default')).'.from');
+
+        if ($accountFrom) {
+            return Address::create($accountFrom);
         }
 
         $address = config('mail.from.address');
